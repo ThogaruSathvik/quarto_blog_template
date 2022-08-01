@@ -24,8 +24,8 @@ website:
 
 execution:
   freeze: auto
-  
-  
+
+
 format:
   html:
     theme:
@@ -33,6 +33,3 @@ format:
       dark: darkly
     css: styles.css
     toc: true
-
-
-
