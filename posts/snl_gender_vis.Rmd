@@ -1,0 +1,170 @@
+---
+title: "SNL - Gender Makeup Analysis"
+description: |
+  Advanced data wrangling & visualization using data about Saturday Night Live.
+author:
+  - name: Sean Conway
+date: "`r Sys.Date()`"
+output: distill::distill_article
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE,message=F,warning=F}
+knitr::opts_chunk$set(echo = TRUE)
+#library(purrr)
+```
+
+## The Data  
+
+These data came to my attention courtesy of Jeremy Singer-Vine's wonderful [Data is Plural](data-is-plural.com) newsletter. [These datasets](https://github.com/hhllcks/snldb), archived by Joel Navaroli and scraped by Hendrik Hilleckes and Colin Morris, contain data about the actors, cast, seasons, etc. from every season of Saturday Night Live from its inception through 2020.  
+
+We will be working with three data files: `actors.csv`, `casts.csv`, and `seasons.csv`. 
+Before we read in the data, we'll need to load the `dplyr`, `tidyr`, `ggplot2`, and `readr` packages.  
+
+```{r warning=F, message=F}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+```
+
+Now let's read in the data.  
+
+```{r}
+actors <- read_csv("data/snl_actors.csv")
+casts <- read_csv("data/snl_casts.csv")
+seasons <- read_csv("data/snl_seasons.csv")
+```
+
+```{r}
+rmarkdown::paged_table(actors)
+```
+
+```{r}
+rmarkdown::paged_table(casts)
+```
+
+```{r}
+rmarkdown::paged_table(seasons)
+```
+
+## Analysis  
+
+We're going to be focusing on how the gender makeup of the SNL cast has changed over time. There's a well-known bias in the entertainment industry in favor of male performers, particularly in comedy. We'll be examining the data to see how/if SNL exhibits such a bias as well as how it has evolved over the years.
+
+The `casts` dataframe contains data about each cast member from each seasons. However, it does not contain any information about the cast members' gender, which is stored in the `actors` dataframe. In turn, the `actors` dataframe contains no information about the seasons in which the cast members appeared.
+
+We will use `left_join()` to merge these two data sets, by `aid` (actor ID). We also use `filter()` to remove all guest stars and crew members from the `actors` data frame. Then, we use `count()` to tally the gender makeup of season.
+
+```{r}
+casts_gender_count <- casts  %>%
+  left_join(filter(actors,type=="cast"),
+            by="aid") %>%
+  count(sid,gender)
+rmarkdown::paged_table(casts_gender_count)
+```
+  
+We now have a nice dataframe containing the counts of each unique gender from each season of Saturday Night Live. 
+
+Next, we perform a number of operations on the data. First, we use `group_by()` and `mutate()` to compute the proportion of gender per season. Some seasons only have `"male"` and `"female"` as the unique genders, while others have `"male"`, `"female"`, `"other"`, and "`NA"`. We want to include all available levels of `gender` for each season. To do so, we need to use `pivot_wider()`, `mutate()`, and `replace_na()` to ensure each level of `gender` is available for each season. We then use `pivot_longer()` to get the data back in a format that will be useful for visualization.  
+
+```{r}
+casts_prop_all <- casts_gender_count %>%
+  group_by(sid) %>%
+  mutate(prop=n/sum(n)) %>%
+  ungroup() %>%
+  select(-n) %>%
+  pivot_wider(names_from = gender,
+              values_from = prop) %>%
+  mutate(across(everything(),~replace_na(.,0))) %>%
+  pivot_longer(c(female,male,`NA`,unknown),
+               values_to = "prop",
+               names_to =  "gender") 
+```
+
+### Visualizing 
+
+This first visualization is straightforward. We simply use `geom_path()` to plot a line of the proportion for each gender for each season of Saturday Night Live. 
+
+```{r}
+ggplot(casts_prop_all,aes(sid,prop,col=gender))+
+  geom_path()
+```
+
+The plot looks good, but let's do some more customizing. 
+
+```{r}
+ggplot(casts_prop_all,aes(sid,prop,col=gender))+
+  geom_path()+
+  scale_y_continuous(limits=c(0,1))+
+  scale_color_discrete(name="Gender")+
+  labs(x="Season",
+       y="Proportion",
+       title="Saturday Night Live",
+       subtitle="Gender Makeup by Season")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust=0.5),
+        plot.subtitle=element_text(hjust=0.5))
+```
+
+  
+It looks like over the years, the gender makeup has slowly trended towards equality, but we are far from full equality in SNL.  
+
+One more note: the reader may have a hard time contextualizing these data in terms of "Season Number". It may be more helpful to plot these data in terms of the **YEAR** the season aired. To do that, we need to use `left_join()` to combine our data with the `seasons` dataframe.  
+
+```{r}
+casts_prop_all %>%
+  left_join(seasons,by="sid") %>%
+  ggplot(aes(year,prop,col=gender))+
+  geom_path()+
+  scale_x_continuous(limits=c(1975,2020),
+                     breaks=seq(1975,2020,5))+
+  scale_y_continuous(limits=c(0,1))+
+  scale_color_discrete(name="Gender")+
+  labs(x="Year",
+       y="Proportion",
+       title="Saturday Night Live",
+       subtitle="Gender Makeup by Year")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust=0.5),
+        plot.subtitle=element_text(hjust=0.5))
+```
+
+That's better. This way, the reader can contextualize the data easier.  
+
+## More analysis/visualization  
+
+We might also consider analyzing the male/non-male ratio over the years, to get an idea of the magnitude of gender bias in the way a proportion might not give us. To do so, we use `pivot_wider()`, `mutate()`, `replace_na()`, and `left_join()` again to get a measure of $\frac{male}{nonmale}$ ratio over the years. We again use `geom_path()` to plot this ratio over the years. We also use `geom_hline()` to plot a horizontal line where $\frac{male}{nonmale}$ ratio equals 1.^[Note: A male/non-male ratio of 1 does NOT indicate a lack of gender bias, as the full spectrum of gender is not represented at all in these data. Rather, it indicates a lack of bias in favor of males when compared with the combined sum of all other genders currently available in the data. That is, a value of 1 is not evidence in favor of gender equality in the data.]
+
+```{r}
+casts_gender_count %>%
+  pivot_wider(names_from = gender,
+              values_from = n) %>% 
+  mutate(across(c(`NA`,unknown,male,female),~replace_na(.,0)),
+         male_nonmale_ratio=male/(female+unknown+`NA`)) %>%
+  left_join(seasons,by="sid") %>%
+  ggplot(aes(year,male_nonmale_ratio))+
+  geom_path(col="dodgerblue3")+
+  geom_hline(yintercept=1,col="red",linetype="dashed")+
+  scale_y_continuous(limits=c(0,5))+
+  labs(x="Year",
+       y="Male/Non-Male Ratio",
+       title="Saturday Night Live",
+       subtitle="Male Bias Over the Years")+
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5),
+        plot.subtitle=element_text(hjust=0.5))
+```
+
+Again, it looks like there's been a consistent male bias over the years, which, although trending downward, does not suggest we are at any sort of equality/representation in entertainment.  
+
+## Conclusion  
+
+We've managed to put together a relatively straightforward analysis & visualization of the gender makeup of Saturday Night Live over the years. A more complex analysis might also take into account the number of sketches cast members of each gender performed in over the years.
+
+In addition, there are numerous other demographic variables not currently taking into consideration that might provide a more complete analysis of representation in the entertainment industry. 
+
+With that being said, this relatively simple analysis is intended to be pedagogical in nature, as a way to demonstrate further some of the helpful data analysis tools available in `dplyr`, `tidyr`, and `ggplot2`. 
+
+
