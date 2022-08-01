@@ -1,0 +1,154 @@
+---
+title: "Customizing ggplot"
+description: |
+  A new article created using the Distill format.
+author:
+  - name: Sean Conway
+date: "`r Sys.Date()`"
+output: distill::distill_article
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## intro  
+
+This script is meant to provide some demonstrations of how to customize the appearance of a finalized `ggplot` object.  
+
+## libraries  
+
+```{r warning=F, message=F}
+library(dplyr)
+library(ggplot2)
+library(gapminder)
+```
+
+## data  
+  
+In this script, we'll be working with the `gapminder` dataset from the package of the same name.  
+
+```{r}
+data("gapminder")
+gapminder %>%
+  rmarkdown::paged_table()
+```
+
+## analysis
+  
+The main purpose of this analysis is to assess how the median life expectancy has changed over time on each continent. 
+
+```{r}
+cont <- gapminder %>%
+  mutate(continent=as.factor(continent)) %>%
+  group_by(continent,year) %>%
+  summarise(med=median(lifeExp,na.rm=T)) %>%
+  ungroup()
+rmarkdown::paged_table(cont)
+```
+
+## plotting  
+  
+### Basic plot   
+
+
+```{r}
+pl <- ggplot(cont, aes(year,med,col=continent))+
+  geom_path()
+pl 
+```
+  
+### Adding text labels using `ggrepel`, other customizations
+  
+The `ggrepel` package allows us to plot text labels while making sure they do not overlap.  
+
+We also use `labs()` to change plot labels, and the `scale_*_continuous()` functions to modify axis ticks and breaks.  
+
+```{r warning=F}
+pl_lab <- pl + 
+  ggrepel::geom_label_repel(aes(label=ifelse(year==min(year),as.character(continent),NA_character_)))+
+  labs(x="Year",
+       y="Median Life Expectancy",
+       title="Median Life Expectancy Over Time",
+       subtitle="Split by Continent")+
+  scale_x_continuous(limits=c(1950,2010),breaks=seq(1950,2010,10))+
+  scale_y_continuous(limits=c(30,90),breaks = seq(30,90,10))
+pl_lab
+```
+
+### More customizations using `theme()`  
+
+The `theme()` function is the workhorse function for customizing the appearance of a `ggplot` object. The `element_text()` functions allows us to change the appearance of the text for various aspects of the plot. 
+
+```{r}
+pl_lab_1 <- pl_lab + 
+  theme(plot.title = element_text(hjust=0.5,size=14),
+        plot.subtitle = element_text(hjust=0.5,size=12),
+        axis.text = element_text(size=10))
+pl_lab_1
+```
+  
+Here, we use `element_rect() to change the background color and `element_line()` to modify gridlines.  
+
+```{r}
+pl_lab_1+
+  theme(panel.background = element_rect(fill="white"),
+        panel.grid = element_line(color="black",size=.1))
+```
+
+### Customizations using `ggthemes`  
+
+`ggthemes` is a great `R` package that has ready-made themes that can change the appearance of our plot.
+
+```{r}
+pl_lab_1 + 
+  ggthemes::theme_base()
+```
+  
+  
+```{r}
+pl_lab_1 +
+  ggthemes::theme_fivethirtyeight()
+```
+
+
+```{r}
+pl_lab_1+
+  ggthemes::theme_excel()
+```
+
+```{r}
+pl_lab_1+
+  ggthemes::theme_few()
+```
+
+## Final Plot  
+
+This code chunk is the full set of code for making the finalized `ggplot` object.  
+
+```{r}
+final_pl <- ggplot(cont, aes(year,med,col=continent))+
+  geom_path()+ 
+  ggrepel::geom_label_repel(aes(label=ifelse(year==min(year),as.character(continent),NA_character_)))+
+  labs(x="Year",
+       y="Median Life Expectancy",
+       title="Median Life Expectancy Over Time",
+       subtitle="Split by Continent")+
+  scale_x_continuous(limits=c(1950,2010),breaks=seq(1950,2010,10))+
+  scale_y_continuous(limits=c(30,90),breaks = seq(30,90,10))+
+  ggthemes::theme_few()+
+  theme(plot.title = element_text(hjust=0.5,size=14),
+        plot.subtitle = element_text(hjust=0.5,size=12),
+        axis.text = element_text(size=10))
+final_pl
+```
+
+
+
+
+
+
+
+
+

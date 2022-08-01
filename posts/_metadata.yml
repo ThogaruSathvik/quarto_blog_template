@@ -1,0 +1,10 @@
+comments:
+  giscus:
+    repo: DACSS/quarto-blog-template
+    category: Blog
+title-block-banner: "#EDF3F9"
+title-block-banner-color: body
+toc-location: left
+search: true
+execute:
+  freeze: auto

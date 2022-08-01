@@ -1,0 +1,124 @@
+---
+title: "Example of Minimal Reproducible Examples"
+author: "Meredith Rolfe"
+desription: "If you need help, use a minimal reproducible example to get the most useful input."
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-copy: true
+    code-tools: true
+categories:
+  - example
+  - minimal example
+---
+
+```{r setup, echo=FALSE}
+library(tidyverse)
+```
+
+## Example 1
+
+A student had an untidy dataset and was trying to figure out how to find summary statistics by year.
+
+```{r}
+data <-tibble(year = c("1991", "1992"),
+              value1 = c(3.4, 4.3),
+              value2 = c(4.5, 5.8))
+
+data
+```
+
+Now that we have a basic example of the dataset - stripping out other variables and only using 2 or 3 cases that capture the range and format of values - it is easy to provide example code for a solution!
+
+```{r}
+data%>%
+  pivot_longer(-year, 
+               names_to = "value",
+               values_to = "production")%>%
+  group_by(year)%>%
+  summarise(year_max = max(production))
+```
+
+## Example 2
+
+In this instance, the student wanted to find the mode of multiple character or factor variables at the same time.
+
+```{r}
+df<- tibble(var1= c("a", "b", "a"),
+            var2= c("c", "c", "a"))
+
+df
+```
+
+Again, this simple example strips away all the complexity of the actual data into two simple character variables with similar names. (the similar names can be critical, although there are other select functions that can work!)
+
+Because we are interested in finding the mode, I created a custom functon to find the mode!
+
+```{r}
+mode<-function(x){
+  names(which.max(table(x))) 
+}
+
+df%>%
+  summarise(across(starts_with("var"),
+                   ~ mode(.x)))
+```
+## Example 3
+
+In this case, a student wanted to know how to replace the string "NA" with a system missing value. Again, it is easiest to start with realistic data to provide a solution.
+
+```{r}
+df <-tibble(x = c(2, "NA"), y = c(4,5))
+df
+```
+As can be seen, the fundamental issue is that replacing the string NA with a true `NA` is not enough - we also need to change the type of the *x* variable.
+
+```{r}
+df%>%
+  mutate(x = ifelse(x=="NA", NA_character_, x),
+         x = as.numeric(x))
+```
+
+## Example 4
+
+A student had a dataframe where one of the variables had a long list of text in a single variable. The text was only somewhat systematic, and needed some modifications before a function like `separate` would work correctly.
+
+```{r}
+df<-tibble(year = c(2019, 2019),
+           longstring = c("Illiterate youth population, 15-24 years, urban,female (number)", 
+                          "Youth illiterate population, 15-24 years, male (number)"))
+
+df
+```
+
+With this representation, we can see the issue is the the *total* tag is missing sometimes in the urban/rural slot, so lets just put it in the string "total" to make the text more systematic.
+
+```{r}
+df%>%
+  mutate(longstring = str_replace(longstring,
+                     "years, ([mf])", "years, total, \\1"))
+```
+
+## Example 5
+
+Another case where we need to pivot to tidy the data. Once again, lets start with a simple example.
+
+```{r}
+data<-tibble(year=c(1991, 1992), male=c(10.1, 8.2), female=c(12.2, 10.5))
+
+data
+```
+This image makes it easy to see we need to pivot longer with gender to make this tidy.
+
+```{r}
+data<-pivot_longer(data, cols=male:female, 
+             names_to = "gender", 
+             values_to = "depression")
+
+data
+
+data%>%
+  group_by(year)%>%
+  summarise(depression = mean(depression))
+```
